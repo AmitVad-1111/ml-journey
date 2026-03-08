@@ -306,37 +306,41 @@
   .output-section {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 4px;
+    margin-top: 16px;
   }
 
   .output-vector {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    padding: 4px 0;
   }
 
   .output-label {
     font-size: 10px;
     color: var(--muted);
-    width: 80px;
+    width: 90px;
     flex-shrink: 0;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
+    line-height: 1.4;
   }
 
   .output-bars {
     display: flex;
     gap: 3px;
     flex: 1;
-    height: 28px;
-    align-items: flex-end;
+    height: 20px;
+    align-items: stretch;
+    overflow: hidden;
+    border-radius: 2px;
   }
 
   .out-bar {
     flex: 1;
-    border-radius: 1px 1px 0 0;
-    transition: height 0.5s cubic-bezier(0.4,0,0.2,1), opacity 0.5s;
-    min-height: 2px;
-    background: linear-gradient(to top, var(--accent2), var(--accent));
+    border-radius: 1px;
+    min-width: 2px;
+    transition: opacity 0.4s;
   }
 
   /* Explanation box */
@@ -907,16 +911,26 @@
       score(Q, Kᵢ) = Q · Kᵢᵀ <span class="dim">/ √dₖ</span>
     </div>
     <div class="explanation">
-      The <strong style="color:var(--accent3)">Query</strong> vector is dot-producted with every <strong style="color:var(--accent)">Key</strong> vector. Higher dot product = more relevance. Dividing by √dₖ prevents vanishing gradients in deep dimensions.
+      The <strong style="color:var(--accent3)">Query</strong> vector (from Step 2) is dot-producted with every <strong style="color:var(--accent)">Key</strong> vector. Higher dot product = more relevant. Then divide by <strong>√dₖ = √8 ≈ 2.828</strong> to scale down large values.
     </div>
+    <br>
+    <!-- carried-in Q vector display -->
+    <div style="margin-bottom:18px;padding:14px 18px;background:rgba(184,255,101,0.04);border:1px solid rgba(184,255,101,0.2);border-radius:2px;">
+      <div style="font-size:9px;color:var(--accent3);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">
+        ← Carried from Step 2 · Query vector for "<span id="scoreQLabel"></span>"
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;" id="scoreQVec"></div>
+    </div>
+    <!-- per-token dot product breakdown -->
+    <div id="scoreCalcBreakdown"></div>
     <br>
     <div class="scores-section">
       <div>
-        <div class="panel-label">Raw Scores</div>
+        <div class="panel-label">Raw Scores (Q · Kᵢ)</div>
         <div class="score-visual" id="rawScores"></div>
       </div>
       <div>
-        <div class="panel-label">Scaled Scores <span style="font-size:9px;color:var(--muted)">÷ √dₖ</span></div>
+        <div class="panel-label">Scaled Scores <span style="font-size:9px;color:var(--muted)">÷ √8 = 2.828</span></div>
         <div class="score-visual" id="scaledScores"></div>
       </div>
     </div>
@@ -929,12 +943,21 @@
       αᵢ = exp(scoreᵢ) <span class="dim">/ Σⱼ exp(scoreⱼ)</span>
     </div>
     <div class="explanation">
-      Softmax converts raw scores into a <strong>probability distribution</strong> — all weights sum to 1.0. The <strong>temperature slider</strong> (above) controls sharpness: low temperature = sharp focus on one token; high temperature = diffuse, spread attention. Drag it now!
+      Softmax turns the scaled scores (from Step 3) into a <strong>probability distribution</strong> summing to 1.0. Each value becomes how much attention the query pays to that token.
     </div>
     <br>
+    <!-- carried-in scaled scores -->
+    <div style="margin-bottom:18px;padding:14px 18px;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.15);border-radius:2px;">
+      <div style="font-size:9px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">
+        ← Carried from Step 3 · Scaled scores (÷ √8)
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;" id="softmaxCarryIn"></div>
+    </div>
+    <!-- softmax numeric table -->
+    <div id="softmaxCalcTable" style="margin-bottom:18px;overflow-x:auto;"></div>
     <div class="two-col">
       <div>
-        <div class="panel-label">Attention Weights</div>
+        <div class="panel-label">Attention Weights α</div>
         <div class="score-visual" id="softmaxScores"></div>
         <div class="dim-note" id="weightSum"></div>
       </div>
@@ -950,12 +973,21 @@
   <div class="panel step-section" id="step4">
     <div class="panel-label">Step 5 — Weighted Sum of Values → Output</div>
     <div class="formula">
-      outputᵢ = Σⱼ αⱼ · Vⱼ
+      output = Σⱼ αⱼ · Vⱼ
     </div>
     <div class="explanation">
-      The final output for the query token is a <strong>weighted average of all Value vectors</strong>, using attention weights αⱼ. Tokens with high attention contribute more to the output. This is how context flows through the model.
+      Each token's <strong style="color:var(--accent2)">Value vector</strong> (from Step 2) is multiplied by its attention weight α (from Step 4), then all are summed. Tokens with higher α contribute more to the final output.
     </div>
     <br>
+    <!-- carried weights -->
+    <div style="margin-bottom:18px;padding:14px 18px;background:rgba(255,107,107,0.04);border:1px solid rgba(255,107,107,0.2);border-radius:2px;">
+      <div style="font-size:9px;color:var(--accent2);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">
+        ← Carried from Step 4 · Attention weights α
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;" id="outputCarryWeights"></div>
+    </div>
+    <!-- weighted value table + numeric output -->
+    <div id="outputCalcTable" style="margin-bottom:18px;overflow-x:auto;"></div>
     <div class="output-section" id="outputSection"></div>
   </div>
 
@@ -1595,6 +1627,96 @@ const SCORE_COLORS = [
 ];
 
 function renderScores() {
+  const Q   = state.queries[state.queryIdx];
+  const dk  = Math.sqrt(D_MODEL);
+
+  // ── Carried-in Q vector chips ──
+  const qLabel = document.getElementById('scoreQLabel');
+  const qVec   = document.getElementById('scoreQVec');
+  if (qLabel) qLabel.textContent = SENTENCE[state.queryIdx];
+  if (qVec) {
+    qVec.innerHTML = Q.map((v,i) =>
+      `<span style="padding:4px 9px;border-radius:2px;font-size:10px;font-variant-numeric:tabular-nums;
+        background:rgba(184,255,101,0.1);color:var(--accent3);border:1px solid rgba(184,255,101,0.2);">
+        <span style="font-size:7px;opacity:0.6;">Q[${i}]</span> ${v.toFixed(3)}</span>`
+    ).join('');
+  }
+
+  // ── Per-token dot product breakdown ──
+  const bkEl = document.getElementById('scoreCalcBreakdown');
+  if (bkEl) {
+    let html = `<div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">
+      Per-token score calculation — Q · Kᵢ for each token</div>`;
+
+    // pick the top-2 by raw score to show full breakdown; others collapsed
+    const sorted = [...state.rawScores.map((s,i)=>({s,i}))].sort((a,b)=>b.s-a.s);
+    const topIdx = new Set(sorted.slice(0,2).map(x=>x.i));
+
+    SENTENCE.forEach((tok, ti) => {
+      const K    = state.keys[ti];
+      const prods = Q.map((q,d) => q * K[d]);
+      const raw  = prods.reduce((a,b)=>a+b,0);
+      const scl  = raw / dk;
+      const isTop = topIdx.has(ti);
+      const color = SCORE_COLORS[ti % SCORE_COLORS.length];
+
+      html += `<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:2px;overflow:hidden;">
+        <!-- header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;
+          background:rgba(255,255,255,0.03);cursor:pointer;gap:12px;"
+          onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="padding:3px 10px;border-radius:1px;font-size:10px;font-weight:700;
+              background:${color}22;color:${color};border:1px solid ${color}44;">${tok}</span>
+            <span style="font-size:9px;color:var(--muted);">Q · K<sub>${ti}</sub></span>
+          </div>
+          <div style="display:flex;gap:18px;align-items:center;">
+            <span style="font-size:9px;color:var(--muted);">raw = <strong style="color:${color}">${raw.toFixed(4)}</strong></span>
+            <span style="font-size:9px;color:var(--muted);">÷2.828 = <strong style="color:var(--accent)">${scl.toFixed(4)}</strong></span>
+            <span style="font-size:9px;color:var(--muted);opacity:0.5;">${isTop?'▲ top score':'▼ click to expand'}</span>
+          </div>
+        </div>
+        <!-- body -->
+        <div style="display:${isTop?'block':'none'};padding:12px 14px;background:rgba(0,0,0,0.2);">
+          <!-- grid header -->
+          <div style="display:grid;grid-template-columns:56px repeat(${D_MODEL},1fr);gap:3px;margin-bottom:4px;">
+            <div style="font-size:8px;color:var(--muted);text-align:center;">dim</div>
+            ${Array.from({length:D_MODEL},(_,d)=>`<div style="font-size:8px;color:var(--muted);text-align:center;">[${d}]</div>`).join('')}
+          </div>
+          <!-- Q row -->
+          <div style="display:grid;grid-template-columns:56px repeat(${D_MODEL},1fr);gap:3px;margin-bottom:3px;">
+            <div style="font-size:8px;color:var(--accent3);padding:4px 3px;display:flex;align-items:center;">Q</div>
+            ${Q.map(v=>`<div style="text-align:center;padding:4px 3px;background:rgba(184,255,101,0.08);
+              color:var(--accent3);font-size:9px;border-radius:1px;font-variant-numeric:tabular-nums;">${v.toFixed(3)}</div>`).join('')}
+          </div>
+          <!-- K row -->
+          <div style="display:grid;grid-template-columns:56px repeat(${D_MODEL},1fr);gap:3px;margin-bottom:3px;">
+            <div style="font-size:8px;color:var(--accent);padding:4px 3px;display:flex;align-items:center;">K<sub>${ti}</sub></div>
+            ${K.map(v=>`<div style="text-align:center;padding:4px 3px;background:rgba(0,229,255,0.08);
+              color:var(--accent);font-size:9px;border-radius:1px;font-variant-numeric:tabular-nums;">${v.toFixed(3)}</div>`).join('')}
+          </div>
+          <!-- products row -->
+          <div style="display:grid;grid-template-columns:56px repeat(${D_MODEL},1fr);gap:3px;margin-bottom:8px;">
+            <div style="font-size:8px;color:var(--muted);padding:4px 3px;display:flex;align-items:center;">Q×K</div>
+            ${prods.map(p=>`<div style="text-align:center;padding:4px 3px;
+              background:${p>=0?'rgba(160,255,160,0.07)':'rgba(255,100,100,0.07)'};
+              color:${p>=0?'#a0ffa0':'#ffaaaa'};font-size:9px;border-radius:1px;font-variant-numeric:tabular-nums;">${p.toFixed(3)}</div>`).join('')}
+          </div>
+          <!-- sum line -->
+          <div style="padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:2px;font-size:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="color:var(--muted);">Σ products =</span>
+            <span style="color:${color};font-weight:700;font-size:12px;">${raw.toFixed(4)}</span>
+            <span style="color:var(--muted);">÷ √8 (${dk.toFixed(3)}) =</span>
+            <span style="color:var(--accent);font-weight:700;font-size:12px;">${scl.toFixed(4)}</span>
+            <span style="font-size:9px;color:var(--muted);">← scaled score for "${tok}"</span>
+          </div>
+        </div>
+      </div>`;
+    });
+
+    bkEl.innerHTML = html;
+  }
+
   renderBarList('rawScores', state.rawScores,
     (s, i) => SCORE_COLORS[i % SCORE_COLORS.length],
     s => s.toFixed(2));
@@ -1605,17 +1727,96 @@ function renderScores() {
 }
 
 function renderSoftmax() {
-  renderBarList('softmaxScores', state.attnWeights,
-    (s, i) => {
-      const r = Math.floor(255 * (1 - s));
-      const g = Math.floor(229 * s + 50);
-      return `rgba(0, ${g}, 255, ${0.5 + s * 0.5})`;
-    },
-    s => (s * 100).toFixed(1) + '%');
+  const scores = state.scaledScores;
+  const maxS   = Math.max(...scores);
+  const exps   = scores.map(s => Math.exp(s - maxS));   // numerically stable
+  const sumExp = exps.reduce((a,b)=>a+b,0);
+  const weights = state.attnWeights;   // already computed via softmax()
 
-  const sum = state.attnWeights.reduce((a,b)=>a+b,0);
-  document.getElementById('weightSum').textContent =
-    `∑ weights = ${sum.toFixed(4)} (should be 1.0)`;
+  // ── Carry-in chips: scaled scores ──
+  const carryEl = document.getElementById('softmaxCarryIn');
+  if (carryEl) {
+    carryEl.innerHTML = scores.map((s,i) =>
+      `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;
+        padding:6px 8px;border-radius:2px;border:1px solid var(--border);background:rgba(0,0,0,0.2);">
+        <span style="font-size:8px;color:var(--muted);">${SENTENCE[i]}</span>
+        <span style="font-size:10px;font-variant-numeric:tabular-nums;
+          color:${SCORE_COLORS[i%SCORE_COLORS.length]};">${s.toFixed(4)}</span>
+      </div>`
+    ).join('');
+  }
+
+  // ── Full softmax numeric table ──
+  const tblEl = document.getElementById('softmaxCalcTable');
+  if (tblEl) {
+    let html = `
+    <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">
+      Softmax step-by-step — for all ${SENTENCE.length} tokens
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:10px;font-variant-numeric:tabular-nums;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);">
+          <th style="text-align:left;padding:8px 10px;color:var(--muted);font-size:8px;font-weight:400;letter-spacing:1px;min-width:70px;">TOKEN</th>
+          <th style="text-align:center;padding:8px 10px;color:var(--accent);font-size:8px;font-weight:400;letter-spacing:1px;">scaled score</th>
+          <th style="text-align:center;padding:8px 10px;color:var(--muted);font-size:8px;font-weight:400;letter-spacing:1px;">− max (${maxS.toFixed(3)})</th>
+          <th style="text-align:center;padding:8px 10px;color:#ffd700;font-size:8px;font-weight:400;letter-spacing:1px;">exp(score−max)</th>
+          <th style="text-align:center;padding:8px 10px;color:var(--accent2);font-size:8px;font-weight:400;letter-spacing:1px;">÷ Σexp (${sumExp.toFixed(3)})</th>
+          <th style="text-align:center;padding:8px 10px;color:var(--accent3);font-size:8px;font-weight:400;letter-spacing:1px;">α (weight)</th>
+          <th style="text-align:center;padding:8px 10px;color:var(--muted);font-size:8px;font-weight:400;letter-spacing:1px;">bar</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+    scores.forEach((s, i) => {
+      const shifted = s - maxS;
+      const expVal  = exps[i];
+      const w       = weights[i];
+      const color   = SCORE_COLORS[i % SCORE_COLORS.length];
+      html += `
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:8px 10px;">
+            <span style="padding:2px 8px;border-radius:1px;font-size:10px;
+              background:${color}22;color:${color};border:1px solid ${color}44;">${SENTENCE[i]}</span>
+          </td>
+          <td style="text-align:center;padding:8px 10px;color:var(--accent);">${s.toFixed(4)}</td>
+          <td style="text-align:center;padding:8px 10px;color:var(--muted);">${shifted.toFixed(4)}</td>
+          <td style="text-align:center;padding:8px 10px;color:#ffd700;font-weight:600;">${expVal.toFixed(4)}</td>
+          <td style="text-align:center;padding:8px 10px;color:var(--accent2);">${(expVal/sumExp).toFixed(4)}</td>
+          <td style="text-align:center;padding:8px 10px;color:var(--accent3);font-weight:700;font-size:11px;">${(w*100).toFixed(2)}%</td>
+          <td style="padding:8px 10px;">
+            <div style="height:10px;background:var(--border);border-radius:1px;overflow:hidden;min-width:80px;">
+              <div style="height:100%;width:${w*100}%;background:${color};transition:width 0.4s;"></div>
+            </div>
+          </td>
+        </tr>`;
+    });
+
+    html += `
+      <tr style="border-top:2px solid var(--border);background:rgba(0,0,0,0.3);">
+        <td style="padding:8px 10px;font-size:9px;color:var(--muted);">TOTAL</td>
+        <td></td><td></td>
+        <td style="text-align:center;padding:8px 10px;color:#ffd700;font-weight:700;">${sumExp.toFixed(4)}</td>
+        <td></td>
+        <td style="text-align:center;padding:8px 10px;color:var(--accent3);font-weight:700;">
+          ${(weights.reduce((a,b)=>a+b,0)*100).toFixed(2)}%
+        </td>
+        <td style="padding:8px 10px;font-size:9px;color:var(--accent3);">✓ sums to 100%</td>
+      </tr>
+      </tbody>
+    </table>`;
+
+    tblEl.innerHTML = html;
+  }
+
+  renderBarList('softmaxScores', weights,
+    (s, i) => {
+      const g = Math.floor(229 * s + 50);
+      return `rgba(0,${g},255,${0.5+s*0.5})`;
+    },
+    s => (s*100).toFixed(1)+'%');
+
+  const sum = weights.reduce((a,b)=>a+b,0);
+  document.getElementById('weightSum').textContent = `∑ weights = ${sum.toFixed(4)} (should be 1.0)`;
 
   drawAttentionHeatmap();
 }
@@ -1661,63 +1862,265 @@ function drawAttentionHeatmap() {
 }
 
 function renderOutput() {
-  const el = document.getElementById('outputSection');
-  el.innerHTML = '';
+  const el      = document.getElementById('outputSection');
+  el.innerHTML  = '';
+  const weights = state.attnWeights;
+  const values  = state.values;
+  const output  = state.output;
+  const D       = D_MODEL;
 
-  const maxAbs = Math.max(...state.output.map(Math.abs), 0.001);
+  // ── Carry-in weights chips ──
+  const wEl = document.getElementById('outputCarryWeights');
+  if (wEl) {
+    wEl.innerHTML = weights.map((w,i) =>
+      `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;
+        padding:6px 10px;border-radius:2px;
+        border:1px solid ${SCORE_COLORS[i%SCORE_COLORS.length]}44;
+        background:${SCORE_COLORS[i%SCORE_COLORS.length]}11;">
+        <span style="font-size:8px;color:var(--muted);">${SENTENCE[i]}</span>
+        <span style="font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;
+          color:${SCORE_COLORS[i%SCORE_COLORS.length]};">α=${(w*100).toFixed(1)}%</span>
+      </div>`
+    ).join('');
+  }
 
-  // Show each contributing value vector with weight
-  SENTENCE.forEach((tok, i) => {
-    const w = state.attnWeights[i];
-    if (w < 0.005) return;
-    const row = document.createElement('div');
-    row.className = 'output-vector';
+  // ── Full weighted-value table ──
+  const tblEl = document.getElementById('outputCalcTable');
+  if (tblEl) {
+    // only show tokens with weight > 0.3% to keep it readable; others collapsed
+    const activeTokens = weights.map((w,i)=>({w,i})).filter(x=>x.w>=0.003);
 
-    const lbl = document.createElement('div');
-    lbl.className = 'output-label';
-    lbl.innerHTML = `<span style="color:var(--accent);font-size:9px">${(w*100).toFixed(1)}%</span><br>${tok}`;
-    row.appendChild(lbl);
+    let html = `
+    <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">
+      output[d] = Σ αᵢ × V[i][d] — for each of ${D} dimensions
+    </div>
+    <div style="overflow-x:auto;">
+    <table style="min-width:100%;border-collapse:collapse;font-size:9px;font-variant-numeric:tabular-nums;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);">
+          <th style="text-align:left;padding:7px 10px;color:var(--muted);font-weight:400;font-size:8px;letter-spacing:1px;min-width:90px;">TOKEN · α</th>
+          ${Array.from({length:D},(_,d)=>`<th style="text-align:center;padding:7px 6px;color:var(--muted);font-weight:400;font-size:8px;letter-spacing:1px;min-width:54px;">dim[${d}]</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>`;
 
-    const bars = document.createElement('div');
-    bars.className = 'output-bars';
-    state.values[i].forEach((v, d) => {
-      const bar = document.createElement('div');
-      bar.className = 'out-bar';
-      const h = (Math.abs(v) / maxAbs) * 80 * w * 10;
-      bar.style.height = Math.max(2, h) + 'px';
-      bar.style.opacity = 0.3 + w * 0.7;
-      bar.style.background = `linear-gradient(to top, ${SCORE_COLORS[i % SCORE_COLORS.length]}, var(--accent))`;
-      bars.appendChild(bar);
+    activeTokens.forEach(({w,i}) => {
+      const V     = values[i];
+      const wV    = V.map(v => w * v);
+      const color = SCORE_COLORS[i % SCORE_COLORS.length];
+      html += `
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:7px 10px;">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span style="padding:2px 8px;border-radius:1px;font-size:9px;
+                background:${color}22;color:${color};border:1px solid ${color}44;">${SENTENCE[i]}</span>
+              <span style="font-size:8px;color:${color};font-weight:700;">α=${(w*100).toFixed(1)}%</span>
+            </div>
+          </td>
+          ${V.map((v,d)=>`
+            <td style="padding:5px 6px;text-align:center;">
+              <div style="font-size:8px;color:var(--muted);margin-bottom:1px;">${v.toFixed(3)}</div>
+              <div style="font-size:9px;font-weight:600;
+                color:${wV[d]>=0?'#a0ffa0':'#ffaaaa'};">${wV[d].toFixed(3)}</div>
+            </td>`).join('')}
+        </tr>`;
     });
-    row.appendChild(bars);
 
-    el.appendChild(row);
+    // Output sum row
+    html += `
+        <tr style="border-top:2px solid var(--border);background:rgba(0,0,0,0.3);">
+          <td style="padding:8px 10px;">
+            <span style="color:var(--accent3);font-size:10px;font-weight:700;font-family:'Syne',sans-serif;">OUTPUT ∑</span>
+          </td>
+          ${output.map((v,d)=>`
+            <td style="padding:7px 6px;text-align:center;">
+              <div style="font-size:10px;font-weight:700;color:var(--accent3);
+                text-shadow:0 0 8px rgba(184,255,101,0.4);">${v.toFixed(3)}</div>
+            </td>`).join('')}
+        </tr>
+      </tbody>
+    </table>
+    </div>`;
+
+    // Per-dim explanation for one dim
+    const topDim = output.reduce((best,v,d)=>Math.abs(v)>Math.abs(output[best])?d:best,0);
+    html += `
+    <div style="margin-top:14px;padding:16px 20px;background:rgba(184,255,101,0.04);
+      border:1px solid rgba(184,255,101,0.2);border-radius:2px;">
+      <div style="font-size:9px;color:var(--accent3);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;">
+        Example: how output[${topDim}] = <strong>${output[topDim].toFixed(4)}</strong> is computed
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="border-collapse:collapse;font-size:10px;font-variant-numeric:tabular-nums;width:100%;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:8px;font-weight:400;letter-spacing:1px;white-space:nowrap;">TOKEN</th>
+              <th style="text-align:center;padding:6px 8px;color:var(--muted);font-size:8px;font-weight:400;letter-spacing:1px;white-space:nowrap;">α (weight)</th>
+              <th style="padding:6px 4px;"></th>
+              <th style="text-align:center;padding:6px 8px;color:var(--accent2);font-size:8px;font-weight:400;letter-spacing:1px;white-space:nowrap;">V[${topDim}] value</th>
+              <th style="padding:6px 4px;"></th>
+              <th style="text-align:center;padding:6px 8px;color:var(--accent3);font-size:8px;font-weight:400;letter-spacing:1px;white-space:nowrap;">α × V[${topDim}]</th>
+              <th style="text-align:left;padding:6px 8px;color:var(--muted);font-size:8px;font-weight:400;">bar</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${activeTokens.map(({w,i}, idx) => {
+              const v          = values[i][topDim];
+              const contrib    = w * v;
+              const color      = SCORE_COLORS[i % SCORE_COLORS.length];
+              const maxContrib = Math.max(...activeTokens.map(({w:aw,i:ai})=>Math.abs(aw*values[ai][topDim])),0.001);
+              const barPct     = Math.abs(contrib)/maxContrib*100;
+              const isPos      = contrib >= 0;
+              return `
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 10px;">
+                  <span style="padding:3px 10px;border-radius:1px;font-size:10px;font-weight:700;
+                    background:${color}22;color:${color};border:1px solid ${color}44;white-space:nowrap;">${SENTENCE[i]}</span>
+                </td>
+                <td style="text-align:center;padding:8px 8px;">
+                  <span style="padding:3px 10px;border-radius:1px;font-size:10px;font-weight:700;
+                    background:${color}18;color:${color};">${(w*100).toFixed(2)}%</span>
+                </td>
+                <td style="text-align:center;padding:8px 4px;color:var(--muted);font-size:14px;font-weight:300;">×</td>
+                <td style="text-align:center;padding:8px 8px;">
+                  <span style="padding:3px 10px;border-radius:1px;font-size:10px;
+                    background:rgba(255,107,107,0.1);color:var(--accent2);">${v>=0?'+':''}${v.toFixed(4)}</span>
+                </td>
+                <td style="text-align:center;padding:8px 4px;color:var(--muted);font-size:14px;font-weight:300;">=</td>
+                <td style="text-align:center;padding:8px 8px;">
+                  <span style="padding:3px 12px;border-radius:1px;font-size:11px;font-weight:700;
+                    background:${isPos?'rgba(160,255,160,0.1)':'rgba(255,100,100,0.1)'};
+                    color:${isPos?'#a0ffa0':'#ff9999'};border:1px solid ${isPos?'rgba(160,255,160,0.2)':'rgba(255,100,100,0.2)'};">
+                    ${contrib>=0?'+':''}${contrib.toFixed(4)}
+                  </span>
+                </td>
+                <td style="padding:8px 8px;min-width:120px;">
+                  <div style="height:10px;background:rgba(0,0,0,0.3);border-radius:1px;overflow:hidden;">
+                    <div style="height:100%;width:${barPct.toFixed(1)}%;
+                      background:${isPos?color:'#ff6b6b'};opacity:0.8;border-radius:1px;transition:width 0.4s;">
+                    </div>
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="border-top:2px solid var(--border);background:rgba(0,0,0,0.25);">
+              <td colspan="5" style="padding:10px 10px;color:var(--muted);font-size:9px;letter-spacing:1px;">
+                SUM of all contributions →
+              </td>
+              <td style="text-align:center;padding:10px 8px;">
+                <span style="padding:5px 16px;border-radius:2px;font-size:14px;font-weight:800;
+                  font-family:'Syne',sans-serif;color:var(--accent3);
+                  background:rgba(184,255,101,0.12);border:1px solid rgba(184,255,101,0.35);">
+                  ${output[topDim]>=0?'+':''}${output[topDim].toFixed(4)}
+                </span>
+              </td>
+              <td style="padding:10px 8px;font-size:9px;color:var(--accent3);">✓ output[${topDim}]</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>`;
+
+    tblEl.innerHTML = html;
+  }
+
+  // ── Numbered bar chart with dim labels and values ──
+  const maxAbsV = Math.max(...values.flat().map(Math.abs), 0.001);
+  const maxAbsO = Math.max(...output.map(Math.abs), 0.001);
+  const activeRows = SENTENCE.map((t,i)=>i).filter(i => weights[i] >= 0.005);
+
+  const secLabel = document.createElement('div');
+  secLabel.style.cssText = 'font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:8px;margin-bottom:10px;';
+  secLabel.textContent = 'Value contribution per token — α × V[d] for each dimension';
+  el.appendChild(secLabel);
+
+  const gridWrap = document.createElement('div');
+  gridWrap.style.cssText = 'width:100%;';
+
+  const colCount = D_MODEL;
+  // Use CSS grid with 1fr columns so it fills 100% width automatically
+  const gridCols = `140px repeat(${colCount}, 1fr)`;
+
+  let gridHTML = `<div style="width:100%;">`;
+
+  // ── Dim header ──
+  gridHTML += `<div style="display:grid;grid-template-columns:${gridCols};gap:3px;margin-bottom:5px;">
+    <div style="font-size:10px;color:var(--muted);padding:4px 8px;">TOKEN · α</div>
+    ${Array.from({length:colCount},(_,d)=>`
+      <div style="font-size:10px;color:var(--muted);text-align:center;padding:5px 4px;
+        background:rgba(0,0,0,0.25);border-radius:2px;letter-spacing:0.5px;">dim[${d}]</div>`).join('')}
+  </div>`;
+
+  // ── Token rows ──
+  activeRows.forEach(i => {
+    const w     = weights[i];
+    const V     = values[i];
+    const color = SCORE_COLORS[i % SCORE_COLORS.length];
+
+    gridHTML += `<div style="display:grid;grid-template-columns:${gridCols};gap:3px;margin-bottom:4px;align-items:stretch;">
+      <div style="display:flex;flex-direction:column;justify-content:center;gap:3px;padding:6px 8px;">
+        <span style="padding:3px 8px;border-radius:1px;font-size:11px;font-weight:700;
+          background:${color}22;color:${color};border:1px solid ${color}44;white-space:nowrap;">${SENTENCE[i]}</span>
+        <span style="font-size:10px;color:${color};font-weight:700;">α=${(w*100).toFixed(1)}%</span>
+      </div>`;
+
+    V.forEach((v, d) => {
+      const contribution = w * v;
+      const barPct = Math.abs(v) / maxAbsV * 100;
+      const isPos  = contribution >= 0;
+      gridHTML += `
+        <div style="display:flex;flex-direction:column;gap:3px;padding:4px 3px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;
+            font-size:9.5px;font-variant-numeric:tabular-nums;padding:0 3px;">
+            <span style="color:var(--muted);">${v.toFixed(2)}</span>
+            <span style="color:${isPos?'#a0ffa0':'#ff9999'};font-weight:700;">${contribution>=0?'+':''}${contribution.toFixed(2)}</span>
+          </div>
+          <div style="height:16px;background:rgba(0,0,0,0.3);border-radius:2px;overflow:hidden;position:relative;">
+            <div style="position:absolute;top:0;bottom:0;
+              ${isPos?'left:0':'right:0'};
+              width:${barPct.toFixed(1)}%;
+              background:${isPos?color:'#ff6b6b'};
+              opacity:${(0.4+w*0.6).toFixed(2)};
+              border-radius:2px;"></div>
+          </div>
+        </div>`;
+    });
+
+    gridHTML += `</div>`;
   });
 
-  // Final output
-  const divider = document.createElement('div');
-  divider.style.cssText = 'height:1px;background:var(--border);margin:12px 0';
-  el.appendChild(divider);
+  // ── Divider ──
+  gridHTML += `<div style="height:2px;background:var(--border);margin:10px 0;border-radius:1px;"></div>`;
 
-  const outRow = document.createElement('div');
-  outRow.className = 'output-vector';
-  const outLbl = document.createElement('div');
-  outLbl.className = 'output-label';
-  outLbl.innerHTML = `<strong style="color:var(--accent3)">output</strong>`;
-  outRow.appendChild(outLbl);
+  // ── Output sum row ──
+  gridHTML += `<div style="display:grid;grid-template-columns:${gridCols};gap:3px;align-items:stretch;">
+    <div style="display:flex;align-items:center;padding:6px 8px;">
+      <span style="color:var(--accent3);font-size:13px;font-weight:800;font-family:'Syne',sans-serif;letter-spacing:-0.5px;">OUTPUT</span>
+    </div>`;
 
-  const outBars = document.createElement('div');
-  outBars.className = 'output-bars';
-  state.output.forEach(v => {
-    const bar = document.createElement('div');
-    bar.className = 'out-bar';
-    bar.style.height = Math.max(2, (Math.abs(v) / maxAbs) * 80) + 'px';
-    bar.style.background = 'linear-gradient(to top, var(--accent2), var(--accent3))';
-    bar.style.boxShadow = '0 0 8px rgba(184,255,101,0.3)';
-    outBars.appendChild(bar);
+  output.forEach((v) => {
+    const barPct = Math.abs(v) / maxAbsO * 100;
+    const isPos  = v >= 0;
+    gridHTML += `
+      <div style="display:flex;flex-direction:column;gap:3px;padding:4px 3px;">
+        <div style="text-align:center;font-size:10.5px;font-variant-numeric:tabular-nums;font-weight:700;
+          color:var(--accent3);padding:0 3px;">${v>=0?'+':''}${v.toFixed(3)}</div>
+        <div style="height:22px;background:rgba(0,0,0,0.3);border-radius:2px;overflow:hidden;position:relative;
+          box-shadow:0 0 8px rgba(184,255,101,0.1);">
+          <div style="position:absolute;top:0;bottom:0;
+            ${isPos?'left:0':'right:0'};
+            width:${barPct.toFixed(1)}%;
+            background:${isPos?'var(--accent3)':'var(--accent2)'};
+            opacity:0.9;border-radius:2px;"></div>
+        </div>
+      </div>`;
   });
-  outRow.appendChild(outBars);
-  el.appendChild(outRow);
+
+  gridHTML += `</div></div>`;
+  gridWrap.innerHTML = gridHTML;
+  el.appendChild(gridWrap);
 }
 
 function renderMultiHead() {
