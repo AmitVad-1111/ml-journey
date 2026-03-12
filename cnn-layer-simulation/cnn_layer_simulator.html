@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CNN Layer Size Simulator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0f1117;
+      color: #e2e8f0;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .page-wrap {
+      width: 100%;
+      max-width: 900px;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      font-size: 0.78rem;
+      color: #64748b;
+      margin-bottom: 2rem;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+      padding: 1rem 1.25rem;
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+    }
+
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .ctrl-group label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 130px;
+      height: 4px;
+      background: #2d3148;
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #6366f1;
+      cursor: pointer;
+    }
+
+    .ctrl-val {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #a5b4fc;
+      min-width: 30px;
+    }
+
+    .animate-btn {
+      margin-left: auto;
+      font-family: inherit;
+      font-size: 0.78rem;
+      padding: 6px 16px;
+      border-radius: 8px;
+      border: 1px solid #4f46e5;
+      background: transparent;
+      color: #a5b4fc;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      letter-spacing: 0.04em;
+    }
+
+    .animate-btn:hover { background: #4f46e5; color: #fff; }
+    .animate-btn:active { transform: scale(0.97); }
+
+    /* Pipeline */
+    .pipeline {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      overflow-x: auto;
+      padding-bottom: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    .layer-block { display: flex; flex-direction: column; align-items: center; }
+
+    .tensor-card {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 12px 14px;
+      min-width: 118px;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.1s;
+      position: relative;
+    }
+
+    .tensor-card:hover { border-color: #4f46e5; transform: translateY(-2px); }
+    .tensor-card.active { border-color: #6366f1; border-width: 1.5px; background: #1a1d2e; }
+
+    .layer-name {
+      font-size: 10px;
+      color: #64748b;
+      margin-bottom: 8px;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .tensor-vis {
+      display: flex;
+      gap: 2px;
+      align-items: flex-end;
+      height: 38px;
+      margin-bottom: 8px;
+    }
+
+    .channel-bar { border-radius: 2px 2px 0 0; flex-shrink: 0; transition: all 0.3s; }
+
+    .shape-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #e2e8f0;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .shape-sub {
+      font-size: 9px;
+      color: #475569;
+      text-align: center;
+      margin-top: 3px;
+    }
+
+    .arrow-wrap {
+      display: flex;
+      align-items: center;
+      padding: 0 4px;
+      margin-top: -20px;
+    }
+
+    .arrow-line {
+      width: 28px;
+      height: 1.5px;
+      background: #2d3148;
+      position: relative;
+    }
+
+    .arrow-line::after {
+      content: '';
+      position: absolute;
+      right: -5px;
+      top: -4px;
+      border: 5px solid transparent;
+      border-left-color: #2d3148;
+    }
+
+    /* Detail Panel */
+    .detail-panel {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      min-height: 150px;
+    }
+
+    .detail-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .detail-title {
+      font-size: 0.75rem;
+      color: #475569;
+    }
+
+    .layer-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .io-badge {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 5px;
+      background: #1e3a5f;
+      color: #7dd3fc;
+      letter-spacing: 0.03em;
+    }
+
+    .io-badge.out {
+      background: #14432a;
+      color: #6ee7b7;
+    }
+
+    .formula-section { margin-bottom: 12px; }
+
+    .formula-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .formula-box {
+      background: #12141f;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    .formula-box.result {
+      color: #6ee7b7;
+      border-color: #14432a;
+      background: #0d1f17;
+    }
+
+    .param-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .param-item {
+      background: #12141f;
+      border: 1px solid #1e2130;
+      border-radius: 6px;
+      padding: 6px 10px;
+    }
+
+    .pk { font-size: 9px; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; }
+    .pv { font-size: 13px; font-weight: 600; color: #a5b4fc; margin-top: 2px; }
+
+    /* Flow dot animation */
+    .flow-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #6366f1;
+      position: absolute;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      opacity: 0;
+      box-shadow: 0 0 8px #6366f1;
+    }
+
+    @keyframes flowPulse {
+      0%   { opacity: 0; left: 0; }
+      40%  { opacity: 1; }
+      100% { opacity: 0; left: calc(100% - 8px); }
+    }
+
+    .flowing .flow-dot {
+      animation: flowPulse 0.55s ease forwards;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { height: 4px; }
+    ::-webkit-scrollbar-track { background: #12141f; }
+    ::-webkit-scrollbar-thumb { background: #2d3148; border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <h1>CNN Layer Size Simulator</h1>
+    <p class="subtitle">DemoModel — interactive tensor shape visualizer</p>
+
+    <div class="controls">
+      <div class="ctrl-group">
+        <label>Input H × W</label>
+        <input type="range" id="inp-size" min="8" max="128" step="8" value="32">
+        <span class="ctrl-val" id="inp-size-val">32</span>
+      </div>
+      <button class="animate-btn" onclick="runAnimate()">&#9654; Animate flow</button>
+    </div>
+
+    <div class="pipeline" id="pipeline"></div>
+
+    <div class="detail-panel" id="detail-panel">
+      <div class="detail-title">Click any layer card to see formula details</div>
+    </div>
+  </div>
+
+<script>
+const LAYERS = [
+  {
+    id: 'input',
+    name: 'Input',
+    type: 'input',
+    params: { channels: 3 },
+    color: '#6b7280',
+    compute(H, W, inC) { return { H, W, C: 3 }; }
+  },
+  {
+    id: 'conv1',
+    name: 'Conv2d',
+    type: 'conv',
+    params: { in_channels: 3, out_channels: 64, kernel_size: 3, stride: 1, padding: 1 },
+    color: '#3b82f6',
+    compute(H, W, inC) {
+      const { kernel_size: K, stride: S, padding: P, out_channels } = this.params;
+      return { H: Math.floor((H + 2*P - K) / S) + 1, W: Math.floor((W + 2*P - K) / S) + 1, C: out_channels };
+    }
+  },
+  {
+    id: 'convt1',
+    name: 'ConvTranspose2d',
+    type: 'convtranspose',
+    params: { in_channels: 64, out_channels: 32, kernel_size: 4, stride: 2, padding: 1 },
+    color: '#10b981',
+    compute(H, W, inC) {
+      const { kernel_size: K, stride: S, padding: P, out_channels } = this.params;
+      return { H: (H - 1) * S - 2*P + K, W: (W - 1) * S - 2*P + K, C: out_channels };
+    }
+  },
+  {
+    id: 'maxpool',
+    name: 'MaxPool2d',
+    type: 'pool',
+    params: { kernel_size: 2, stride: 2 },
+    color: '#f59e0b',
+    compute(H, W, inC) {
+      const { kernel_size: K, stride: S } = this.params;
+      return { H: Math.floor((H - K) / S) + 1, W: Math.floor((W - K) / S) + 1, C: inC };
+    }
+  },
+  {
+    id: 'conv_final',
+    name: 'Conv2d (final)',
+    type: 'conv',
+    params: { in_channels: 32, out_channels: 1, kernel_size: 3, stride: 1, padding: 1 },
+    color: '#ef4444',
+    compute(H, W, inC) {
+      const { kernel_size: K, stride: S, padding: P, out_channels } = this.params;
+      return { H: Math.floor((H + 2*P - K) / S) + 1, W: Math.floor((W + 2*P - K) / S) + 1, C: out_channels };
+    }
+  }
+];
+
+let shapes = [];
+let activeIdx = -1;
+let animTimer = null;
+
+function computeShapes(inputH, inputW) {
+  const result = [];
+  let H = inputH, W = inputW, C = 3;
+  for (let i = 0; i < LAYERS.length; i++) {
+    const s = LAYERS[i].compute(H, W, C);
+    result.push({ ...s, inputH: H, inputW: W, inputC: C });
+    H = s.H; W = s.W; C = s.C;
+  }
+  return result;
+}
+
+function barCount(C) {
+  if (C <= 8) return C;
+  if (C <= 32) return 8;
+  return 10;
+}
+
+function barW(C) {
+  if (C <= 4) return 10; if (C <= 16) return 7; if (C <= 32) return 5; return 4;
+}
+
+function spatialH(H) {
+  if (H <= 32) return 22; if (H <= 64) return 29; return 36;
+}
+
+function buildVis(idx, shape) {
+  const count = barCount(shape.C);
+  const bw = barW(shape.C);
+  const bh = spatialH(shape.H);
+  const color = LAYERS[idx].color;
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const opacity = 0.35 + (i / count) * 0.65;
+    html += `<div class="channel-bar" style="width:${bw}px;height:${bh}px;background:${color};opacity:${opacity}"></div>`;
+  }
+  return html;
+}
+
+function getFormulaHTML(i) {
+  const layer = LAYERS[i];
+  const shape = shapes[i];
+  const prev = shapes[i > 0 ? i - 1 : 0];
+  if (layer.type === 'input') {
+    return `<div class="formula-row"><span class="formula-box">Input tensor — fixed size</span><span class="formula-box result">C=3 &nbsp; H=${shape.H} &nbsp; W=${shape.W}</span></div>`;
+  }
+  const p = layer.params;
+  if (layer.type === 'conv') {
+    const K = p.kernel_size, S = p.stride || 1, P = p.padding || 0;
+    return `<div class="formula-section">
+      <div class="formula-row"><span class="formula-box">H_out = ⌊ (H_in + 2P − K) / S ⌋ + 1</span></div>
+      <div class="formula-row">
+        <span class="formula-box">= ⌊ (${prev.H} + 2×${P} − ${K}) / ${S} ⌋ + 1</span>
+        <span class="formula-box result">= ${shape.H}</span>
+      </div>
+    </div>`;
+  }
+  if (layer.type === 'convtranspose') {
+    const K = p.kernel_size, S = p.stride || 1, P = p.padding || 0;
+    return `<div class="formula-section">
+      <div class="formula-row"><span class="formula-box">H_out = (H_in − 1) × S − 2P + K</span></div>
+      <div class="formula-row">
+        <span class="formula-box">= (${prev.H} − 1) × ${S} − 2×${P} + ${K}</span>
+        <span class="formula-box result">= ${shape.H}</span>
+      </div>
+    </div>`;
+  }
+  if (layer.type === 'pool') {
+    const K = p.kernel_size, S = p.stride || p.kernel_size;
+    return `<div class="formula-section">
+      <div class="formula-row"><span class="formula-box">H_out = ⌊ (H_in − K) / S ⌋ + 1</span></div>
+      <div class="formula-row">
+        <span class="formula-box">= ⌊ (${prev.H} − ${K}) / ${S} ⌋ + 1</span>
+        <span class="formula-box result">= ${shape.H}</span>
+      </div>
+    </div>`;
+  }
+  return '';
+}
+
+function getParamsHTML(i) {
+  return Object.entries(LAYERS[i].params).map(([k, v]) =>
+    `<div class="param-item"><div class="pk">${k}</div><div class="pv">${v}</div></div>`
+  ).join('');
+}
+
+function showDetail(idx) {
+  activeIdx = idx;
+  renderPipeline();
+  const layer = LAYERS[idx];
+  const shape = shapes[idx];
+  const prev = idx > 0 ? shapes[idx - 1] : null;
+
+  let html = `<div class="detail-top">`;
+  if (prev) html += `<span class="io-badge">in: ${prev.C}×${prev.H}×${prev.W}</span>`;
+  html += `<span class="io-badge out">out: ${shape.C}×${shape.H}×${shape.W}</span>`;
+  html += `<span class="layer-title" style="margin-left:4px">${layer.name}</span></div>`;
+  html += getFormulaHTML(idx);
+  if (layer.type !== 'input') html += `<div class="param-grid">${getParamsHTML(idx)}</div>`;
+  document.getElementById('detail-panel').innerHTML = html;
+}
+
+function renderPipeline() {
+  const inputH = parseInt(document.getElementById('inp-size').value);
+  shapes = computeShapes(inputH, inputH);
+  let html = '';
+  for (let i = 0; i < LAYERS.length; i++) {
+    const shape = shapes[i];
+    const isActive = i === activeIdx;
+    html += `<div class="layer-block">
+      <div class="tensor-card${isActive ? ' active' : ''}" onclick="showDetail(${i})" id="card-${i}">
+        <div class="layer-name">${LAYERS[i].name}</div>
+        <div class="tensor-vis">${buildVis(i, shape)}</div>
+        <div class="shape-label">${shape.C} × ${shape.H} × ${shape.W}</div>
+        <div class="shape-sub">(C × H × W)</div>
+        <div class="flow-dot" id="dot-${i}"></div>
+      </div>
+    </div>`;
+    if (i < LAYERS.length - 1) {
+      html += `<div class="arrow-wrap"><div class="arrow-line"></div></div>`;
+    }
+  }
+  document.getElementById('pipeline').innerHTML = html;
+}
+
+function runAnimate() {
+  if (animTimer) { clearTimeout(animTimer); animTimer = null; }
+  let i = 0;
+  function step() {
+    if (i > 0) {
+      const prev = document.getElementById(`dot-${i - 1}`);
+      if (prev) { prev.style.animation = 'none'; prev.style.opacity = '0'; }
+    }
+    showDetail(i);
+    const dot = document.getElementById(`dot-${i}`);
+    if (dot) { dot.style.animation = 'none'; dot.offsetWidth; dot.style.animation = 'flowPulse 0.55s ease forwards'; }
+    if (i < LAYERS.length - 1) { i++; animTimer = setTimeout(step, 720); }
+  }
+  step();
+}
+
+document.getElementById('inp-size').addEventListener('input', function () {
+  document.getElementById('inp-size-val').textContent = this.value;
+  activeIdx = -1;
+  renderPipeline();
+  document.getElementById('detail-panel').innerHTML = '<div class="detail-title">Click any layer card to see formula details</div>';
+});
+
+renderPipeline();
+showDetail(0);
+</script>
+</body>
+</html>
