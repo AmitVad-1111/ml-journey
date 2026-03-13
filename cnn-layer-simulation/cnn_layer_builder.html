@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNN Layer Builder</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f5f5f3;
+    --bg3: #ededea;
+    --bg-info: #e6f1fb;
+    --bg-warn: #faeeda;
+    --bg-ok: #eaf3de;
+    --bg-err: #fcebeb;
+    --text: #1a1a18;
+    --text2: #5a5a56;
+    --text3: #9a9892;
+    --text-info: #185fa5;
+    --text-warn: #854f0b;
+    --text-ok: #3b6d11;
+    --text-err: #a32d2d;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.22);
+    --border-info: rgba(24,95,165,0.35);
+    --border-warn: rgba(133,79,11,0.35);
+    --border-ok: rgba(59,109,17,0.35);
+    --border-err: rgba(163,45,45,0.35);
+    --radius: 10px;
+    --font: 'DM Mono', 'JetBrains Mono', 'Fira Mono', monospace;
+    --sans: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --bg2: #242422;
+      --bg3: #2c2c2a;
+      --bg-info: #042c53;
+      --bg-warn: #412402;
+      --bg-ok: #173404;
+      --bg-err: #501313;
+      --text: #e8e6de;
+      --text2: #a8a69e;
+      --text3: #68665e;
+      --text-info: #85b7eb;
+      --border: rgba(255,255,255,0.10);
+      --border2: rgba(255,255,255,0.20);
+      --border-info: rgba(133,183,235,0.35);
+      --border-warn: rgba(250,199,117,0.35);
+      --border-ok: rgba(192,221,151,0.35);
+      --border-err: rgba(240,149,149,0.35);
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px; min-height: 100vh; }
+  
+  header { padding: 18px 24px 14px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; }
+  header span { font-size: 11px; color: var(--text3); font-family: var(--font); }
+
+  .main { display: grid; grid-template-columns: 1fr 260px; gap: 0; min-height: calc(100vh - 55px); }
+  .left { padding: 16px; border-right: 0.5px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+  .right { padding: 16px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+
+  .bar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 10px 12px; background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); }
+  .pal { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; padding: 8px 12px; background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); }
+  .vsep { width: 0.5px; align-self: stretch; background: var(--border); margin: 0 2px; }
+  .cap { font-size: 10px; color: var(--text3); font-family: var(--font); }
+  .lbl { font-size: 12px; color: var(--text2); font-weight: 500; }
+
+  .ni { height: 26px; width: 52px; text-align: center; font-family: var(--font); font-size: 12px; background: var(--bg); border: 0.5px solid var(--border2); border-radius: 5px; color: var(--text); }
+  .ni:focus { outline: none; border-color: var(--text-info); }
+
+  .pbtn { padding: 4px 10px; border-radius: 20px; border: 0.5px solid var(--border); background: transparent; cursor: pointer; font-size: 11px; color: var(--text2); font-family: var(--sans); transition: all .12s; white-space: nowrap; }
+  .pbtn:hover { background: var(--bg3); color: var(--text); }
+  .pbtn.info { color: var(--text-info); border-color: var(--border-info); }
+  .pbtn.info:hover { background: var(--bg-info); }
+  .pbtn.warn { color: var(--text-warn); border-color: var(--border-warn); }
+  .pbtn.warn:hover { background: var(--bg-warn); }
+  .pbtn.ok { color: var(--text-ok); border-color: var(--border-ok); }
+  .pbtn.ok:hover { background: var(--bg-ok); }
+
+  .stack { display: flex; flex-direction: column; gap: 7px; flex: 1; }
+  .empty-st { border: 1.5px dashed var(--border); border-radius: 10px; color: var(--text3); text-align: center; padding: 50px 20px; font-size: 12px; line-height: 2.2; }
+
+  .lc { position: relative; padding: 10px 12px; background: var(--bg2); border: 0.5px solid var(--border); border-left: 2.5px solid var(--border); border-radius: var(--radius); }
+  .lc.bad { border-color: var(--border-err) !important; background: var(--bg-err); }
+  .lc.g-conv { border-left-color: var(--border-info); }
+  .lc.g-pool { border-left-color: var(--border-warn); }
+  .lc.g-act  { border-left-color: var(--border-ok); }
+  .lc.g-norm { border-left-color: var(--border-err); }
+
+  .lh { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; padding-right: 28px; flex-wrap: wrap; }
+  .idx { font-family: var(--font); font-size: 10px; color: var(--text3); min-width: 18px; }
+  .ltag { font-family: var(--font); font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+  .pr { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 7px; }
+  .pf { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .pl { font-size: 10px; color: var(--text3); font-family: var(--font); }
+  .pi { height: 24px; width: 54px; text-align: center; font-family: var(--font); font-size: 12px; background: var(--bg); border: 0.5px solid var(--border2); border-radius: 4px; color: var(--text); }
+  .pi:focus { outline: none; border-color: var(--text-info); }
+  .sr { display: flex; align-items: center; gap: 6px; font-family: var(--font); font-size: 11px; }
+  .sb { padding: 2px 8px; border-radius: 4px; color: var(--text2); background: var(--bg3); border: 0.5px solid var(--border); }
+  .sb.out { color: var(--text); font-weight: 500; background: var(--bg2); }
+  .sb.bad { color: var(--text-err); border-color: var(--border-err); background: var(--bg-err); }
+  .arr { color: var(--text3); }
+  .xbtn { position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; border-radius: 4px; border: 0.5px solid var(--border); background: transparent; cursor: pointer; font-size: 10px; color: var(--text3); display: flex; align-items: center; justify-content: center; transition: all .12s; }
+  .xbtn:hover { background: var(--bg-err); color: var(--text-err); border-color: var(--border-err); }
+
+  .panel { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  .pt { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 9px; }
+  .fl { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; font-family: var(--font); font-size: 11px; }
+  .fdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .fa { font-size: 10px; color: var(--text3); padding-left: 7px; margin-bottom: 2px; }
+  .av { display: flex; gap: 6px; margin-bottom: 5px; font-size: 11px; line-height: 1.5; }
+  .code-b { font-family: var(--font); font-size: 10px; background: var(--bg3); border-radius: 6px; padding: 9px; line-height: 1.8; white-space: pre; overflow-x: auto; border: 0.5px solid var(--border); color: var(--text2); }
+  .kw { color: var(--text-info); }
+  .ks { color: var(--text-ok); }
+  .copy-btn { margin-top: 6px; width: 100%; }
+  .delta-down { font-size: 10px; color: var(--text-warn); margin-left: 4px; }
+  .delta-up   { font-size: 10px; color: var(--text-ok);   margin-left: 4px; }
+  .delta-ch   { font-size: 10px; color: var(--text-info);  margin-left: 4px; }
+  .delta-flat { font-size: 10px; color: var(--text2);       margin-left: 4px; }
+
+  @media (max-width: 700px) {
+    .main { grid-template-columns: 1fr; }
+    .left { border-right: none; border-bottom: 0.5px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CNN Layer Builder</h1>
+  <span>shape calculator · PyTorch code generator</span>
+</header>
+
+<div class="main">
+<div class="left">
+
+  <div class="bar">
+    <span class="lbl">Input shape</span>
+    <span class="cap">C</span><input class="ni" id="ic" type="number" value="1" min="1" max="4096" oninput="upd()">
+    <span class="cap">H</span><input class="ni" id="ih" type="number" value="28" min="1" max="4096" oninput="upd()">
+    <span class="cap">W</span><input class="ni" id="iw" type="number" value="28" min="1" max="4096" oninput="upd()">
+    <code id="insumm" style="font-size:11px;color:var(--text3);margin-left:2px;font-family:var(--font)"></code>
+    <button class="pbtn" style="margin-left:auto" onclick="clearAll()">Clear all</button>
+    <button class="pbtn" onclick="loadPreset('mnist')">MNIST</button>
+    <button class="pbtn" onclick="loadPreset('imagenet')">ImageNet</button>
+    <button class="pbtn" onclick="loadPreset('unet')">U-Net</button>
+  </div>
+
+  <div class="pal">
+    <span class="cap" style="margin-right:2px">+ layer:</span>
+    <button class="pbtn info" onclick="add('Conv2d')">Conv2d</button>
+    <button class="pbtn info" onclick="add('ConvTranspose2d')">ConvT2d</button>
+    <button class="pbtn info" onclick="add('DepthwiseConv')">DepthwiseConv</button>
+    <div class="vsep"></div>
+    <button class="pbtn warn" onclick="add('MaxPool2d')">MaxPool</button>
+    <button class="pbtn warn" onclick="add('AvgPool2d')">AvgPool</button>
+    <button class="pbtn warn" onclick="add('AdaptiveAvgPool2d')">AdaptAvgPool</button>
+    <button class="pbtn warn" onclick="add('Upsample')">Upsample</button>
+    <div class="vsep"></div>
+    <button class="pbtn ok" onclick="add('ReLU')">ReLU</button>
+    <button class="pbtn ok" onclick="add('LeakyReLU')">LeakyReLU</button>
+    <button class="pbtn ok" onclick="add('GELU')">GELU</button>
+    <button class="pbtn ok" onclick="add('Sigmoid')">Sigmoid</button>
+    <div class="vsep"></div>
+    <button class="pbtn" onclick="add('BatchNorm2d')">BatchNorm</button>
+    <button class="pbtn" onclick="add('LayerNorm')">LayerNorm</button>
+    <button class="pbtn" onclick="add('Dropout')">Dropout</button>
+    <button class="pbtn" onclick="add('Flatten')">Flatten</button>
+    <button class="pbtn" onclick="add('Linear')">Linear</button>
+  </div>
+
+  <div id="stk" class="stack"></div>
+
+</div>
+
+<div class="right">
+  <div class="panel"><div class="pt">Shape flow</div><div id="flow"></div></div>
+  <div class="panel"><div class="pt">Advice</div><div id="adv"></div></div>
+  <div class="panel">
+    <div class="pt">PyTorch code</div>
+    <div id="code"></div>
+    <button class="pbtn copy-btn" onclick="copyCode()">Copy code</button>
+  </div>
+  <div class="panel">
+    <div class="pt">Model stats</div>
+    <div id="stats"></div>
+  </div>
+</div>
+</div>
+
+<script>
+let layers = [], nid = 1;
+
+const D = {
+  Conv2d: {
+    label: 'Conv2d', g: 'conv',
+    p: [{k:'out_ch',l:'out_ch',d:32,n:1,x:4096},{k:'kernel',l:'k',d:3,n:1,x:99},{k:'stride',l:'s',d:1,n:1,x:99},{k:'pad',l:'p',d:0,n:0,x:99}],
+    calc(s, p) {
+      if (s.t !== '2d') return {t:'e', m:'Needs 2D input'};
+      const H = Math.floor((s.H + 2*p.pad - p.kernel) / p.stride) + 1;
+      const W = Math.floor((s.W + 2*p.pad - p.kernel) / p.stride) + 1;
+      if (H <= 0 || W <= 0) return {t:'e', m:`H=${H} W=${W} ≤ 0 — increase padding or reduce kernel`};
+      return {t:'2d', C:p.out_ch, H, W};
+    },
+    code(p, s) { const ic = s && s.t==='2d' ? s.C : '?'; return `nn.Conv2d(${ic}, ${p.out_ch}, kernel_size=${p.kernel}, stride=${p.stride}, padding=${p.pad})`; },
+    desc(p) { return `out=${p.out_ch} k=${p.kernel} s=${p.stride} p=${p.pad}`; },
+    params(p, s) { return p.out_ch * (s && s.t==='2d' ? s.C : 0) * p.kernel * p.kernel + p.out_ch; }
+  },
+  ConvTranspose2d: {
+    label: 'ConvT2d', g: 'conv',
+    p: [{k:'out_ch',l:'out_ch',d:32,n:1,x:4096},{k:'kernel',l:'k',d:4,n:1,x:99},{k:'stride',l:'s',d:2,n:1,x:99},{k:'pad',l:'p',d:1,n:0,x:99}],
+    calc(s, p) {
+      if (s.t !== '2d') return {t:'e', m:'Needs 2D input'};
+      const H = (s.H - 1)*p.stride - 2*p.pad + p.kernel;
+      const W = (s.W - 1)*p.stride - 2*p.pad + p.kernel;
+      if (H <= 0 || W <= 0) return {t:'e', m:`H=${H} W=${W} ≤ 0`};
+      return {t:'2d', C:p.out_ch, H, W};
+    },
+    code(p, s) { const ic = s && s.t==='2d' ? s.C : '?'; return `nn.ConvTranspose2d(${ic}, ${p.out_ch}, kernel_size=${p.kernel}, stride=${p.stride}, padding=${p.pad})`; },
+    desc(p) { return `out=${p.out_ch} k=${p.kernel} s=${p.stride} p=${p.pad}`; },
+    params(p, s) { return p.out_ch * (s && s.t==='2d' ? s.C : 0) * p.kernel * p.kernel + p.out_ch; }
+  },
+  DepthwiseConv: {
+    label: 'DepthwiseConv', g: 'conv',
+    p: [{k:'kernel',l:'k',d:3,n:1,x:99},{k:'stride',l:'s',d:1,n:1,x:99},{k:'pad',l:'p',d:1,n:0,x:99}],
+    calc(s, p) {
+      if (s.t !== '2d') return {t:'e', m:'Needs 2D input'};
+      const H = Math.floor((s.H + 2*p.pad - p.kernel) / p.stride) + 1;
+      const W = Math.floor((s.W + 2*p.pad - p.kernel) / p.stride) + 1;
+      if (H <= 0 || W <= 0) return {t:'e', m:`H=${H} W=${W} ≤ 0`};
+      return {t:'2d', C:s.C, H, W};
+    },
+    code(p, s) { const c = s && s.t==='2d' ? s.C : '?'; return `nn.Conv2d(${c}, ${c}, kernel_size=${p.kernel}, stride=${p.stride}, padding=${p.pad}, groups=${c})`; },
+    desc(p) { return `k=${p.kernel} s=${p.stride} p=${p.pad}`; },
+    params(p, s) { return (s && s.t==='2d' ? s.C : 0) * p.kernel * p.kernel; }
+  },
+  MaxPool2d: {
+    label: 'MaxPool2d', g: 'pool',
+    p: [{k:'kernel',l:'k',d:2,n:1,x:99},{k:'stride',l:'s',d:2,n:1,x:99},{k:'pad',l:'p',d:0,n:0,x:99}],
+    calc(s, p) {
+      if (s.t !== '2d') return {t:'e', m:'Needs 2D input'};
+      const H = Math.floor((s.H + 2*p.pad - p.kernel) / p.stride) + 1;
+      const W = Math.floor((s.W + 2*p.pad - p.kernel) / p.stride) + 1;
+      if (H <= 0 || W <= 0) return {t:'e', m:`H=${H} W=${W} ≤ 0`};
+      return {t:'2d', C:s.C, H, W};
+    },
+    code(p) { return `nn.MaxPool2d(kernel_size=${p.kernel}, stride=${p.stride})`; },
+    desc(p) { return `k=${p.kernel} s=${p.stride}`; },
+    params() { return 0; }
+  },
+  AvgPool2d: {
+    label: 'AvgPool2d', g: 'pool',
+    p: [{k:'kernel',l:'k',d:2,n:1,x:99},{k:'stride',l:'s',d:2,n:1,x:99}],
+    calc(s, p) {
+      if (s.t !== '2d') return {t:'e', m:'Needs 2D input'};
+      const H = Math.floor((s.H - p.kernel) / p.stride) + 1;
+      const W = Math.floor((s.W - p.kernel) / p.stride) + 1;
+      if (H <= 0 || W <= 0) return {t:'e', m:`H=${H} W=${W} ≤ 0`};
+      return {t:'2d', C:s.C, H, W};
+    },
+    code(p) { return `nn.AvgPool2d(kernel_size=${p.kernel}, stride=${p.stride})`; },
+    desc(p) { return `k=${p.kernel} s=${p.stride}`; },
+    params() { return 0; }
+  },
+  AdaptiveAvgPool2d: {
+    label: 'AdaptAvgPool', g: 'pool',
+    p: [{k:'h',l:'out_h',d:1,n:1,x:9999},{k:'w',l:'out_w',d:1,n:1,x:9999}],
+    calc(s, p) {
+      if (s.t !== '2d') return {t:'e', m:'Needs 2D input'};
+      return {t:'2d', C:s.C, H:p.h, W:p.w};
+    },
+    code(p) { return `nn.AdaptiveAvgPool2d((${p.h}, ${p.w}))`; },
+    desc(p) { return `→ ${p.h}×${p.w}`; },
+    params() { return 0; }
+  },
+  Upsample: {
+    label: 'Upsample', g: 'pool',
+    p: [{k:'scale',l:'scale',d:2,n:1,x:32}],
+    calc(s, p) {
+      if (s.t !== '2d') return {t:'e', m:'Needs 2D input'};
+      return {t:'2d', C:s.C, H:s.H*p.scale, W:s.W*p.scale};
+    },
+    code(p) { return `nn.Upsample(scale_factor=${p.scale}, mode='bilinear', align_corners=False)`; },
+    desc(p) { return `×${p.scale}`; },
+    params() { return 0; }
+  },
+  ReLU: {
+    label: 'ReLU', g: 'act', p: [],
+    calc(s) { return s.t==='e' ? s : {...s}; },
+    code() { return `nn.ReLU(inplace=True)`; },
+    desc() { return ''; },
+    params() { return 0; }
+  },
+  LeakyReLU: {
+    label: 'LeakyReLU', g: 'act',
+    p: [{k:'slope',l:'slope',d:0.01,n:0,x:1,st:0.01,w:58}],
+    calc(s) { return s.t==='e' ? s : {...s}; },
+    code(p) { return `nn.LeakyReLU(negative_slope=${p.slope})`; },
+    desc(p) { return `slope=${p.slope}`; },
+    params() { return 0; }
+  },
+  GELU: {
+    label: 'GELU', g: 'act', p: [],
+    calc(s) { return s.t==='e' ? s : {...s}; },
+    code() { return `nn.GELU()`; },
+    desc() { return ''; },
+    params() { return 0; }
+  },
+  Sigmoid: {
+    label: 'Sigmoid', g: 'act', p: [],
+    calc(s) { return s.t==='e' ? s : {...s}; },
+    code() { return `nn.Sigmoid()`; },
+    desc() { return ''; },
+    params() { return 0; }
+  },
+  BatchNorm2d: {
+    label: 'BatchNorm2d', g: 'norm', p: [],
+    calc(s) {
+      if (s.t !== '2d') return {t:'e', m:'Needs 2D input'};
+      return {...s};
+    },
+    code(p, s) { return `nn.BatchNorm2d(${s && s.t==='2d' ? s.C : '?'})`; },
+    desc() { return ''; },
+    params(p, s) { return (s && s.t==='2d' ? s.C : 0) * 2; }
+  },
+  LayerNorm: {
+    label: 'LayerNorm', g: 'norm', p: [],
+    calc(s) { return s.t==='e' ? s : {...s}; },
+    code(p, s) {
+      if (!s) return `nn.LayerNorm(?)`;
+      if (s.t==='2d') return `nn.LayerNorm([${s.C}, ${s.H}, ${s.W}])`;
+      if (s.t==='1d') return `nn.LayerNorm(${s.F})`;
+      return `nn.LayerNorm(?)`;
+    },
+    desc() { return ''; },
+    params(p, s) { return s && s.t==='2d' ? s.C*s.H*s.W*2 : s && s.t==='1d' ? s.F*2 : 0; }
+  },
+  Dropout: {
+    label: 'Dropout', g: 'other',
+    p: [{k:'p',l:'p',d:0.5,n:0,x:1,st:0.1,w:52}],
+    calc(s) { return s.t==='e' ? s : {...s}; },
+    code(p) { return `nn.Dropout(p=${p.p})`; },
+    desc(p) { return `p=${p.p}`; },
+    params() { return 0; }
+  },
+  Flatten: {
+    label: 'Flatten', g: 'other', p: [],
+    calc(s) {
+      if (s.t === 'e') return s;
+      if (s.t === '2d') return {t:'1d', F:s.C*s.H*s.W};
+      return {...s};
+    },
+    code() { return `nn.Flatten()`; },
+    desc() { return ''; },
+    params() { return 0; }
+  },
+  Linear: {
+    label: 'Linear', g: 'other',
+    p: [{k:'out',l:'out',d:128,n:1,x:1000000,w:64}],
+    calc(s, p) {
+      if (s.t !== '1d') return {t:'e', m:'Add Flatten before Linear'};
+      return {t:'1d', F:p.out};
+    },
+    code(p, s) { return `nn.Linear(${s && s.t==='1d' ? s.F : '?'}, ${p.out})`; },
+    desc(p) { return `out=${p.out}`; },
+    params(p, s) { return (s && s.t==='1d' ? s.F : 0) * p.out + p.out; }
+  }
+};
+
+const GC = {conv:'info',pool:'warn',act:'ok',norm:'err',other:''};
+const GDC = {
+  conv:'var(--text-info)',pool:'var(--text-warn)',
+  act:'var(--text-ok)',norm:'var(--text-err)',other:'var(--text2)'
+};
+
+const PRESETS = {
+  mnist: {
+    ic:1,ih:28,iw:28,
+    layers:[
+      {type:'Conv2d',p:{out_ch:32,kernel:3,stride:1,pad:1}},
+      {type:'ReLU',p:{}},
+      {type:'MaxPool2d',p:{kernel:2,stride:2,pad:0}},
+      {type:'Conv2d',p:{out_ch:64,kernel:3,stride:1,pad:1}},
+      {type:'ReLU',p:{}},
+      {type:'MaxPool2d',p:{kernel:2,stride:2,pad:0}},
+      {type:'Flatten',p:{}},
+      {type:'Linear',p:{out:128}},
+      {type:'ReLU',p:{}},
+      {type:'Linear',p:{out:10}}
+    ]
+  },
+  imagenet: {
+    ic:3,ih:224,iw:224,
+    layers:[
+      {type:'Conv2d',p:{out_ch:64,kernel:7,stride:2,pad:3}},
+      {type:'BatchNorm2d',p:{}},
+      {type:'ReLU',p:{}},
+      {type:'MaxPool2d',p:{kernel:3,stride:2,pad:1}},
+      {type:'Conv2d',p:{out_ch:128,kernel:3,stride:2,pad:1}},
+      {type:'ReLU',p:{}},
+      {type:'Conv2d',p:{out_ch:256,kernel:3,stride:2,pad:1}},
+      {type:'ReLU',p:{}},
+      {type:'AdaptiveAvgPool2d',p:{h:1,w:1}},
+      {type:'Flatten',p:{}},
+      {type:'Linear',p:{out:1000}}
+    ]
+  },
+  unet: {
+    ic:1,ih:64,iw:64,
+    layers:[
+      {type:'Conv2d',p:{out_ch:64,kernel:3,stride:1,pad:1}},
+      {type:'ReLU',p:{}},
+      {type:'MaxPool2d',p:{kernel:2,stride:2,pad:0}},
+      {type:'Conv2d',p:{out_ch:128,kernel:3,stride:1,pad:1}},
+      {type:'ReLU',p:{}},
+      {type:'ConvTranspose2d',p:{out_ch:64,kernel:2,stride:2,pad:0}},
+      {type:'ReLU',p:{}},
+      {type:'Conv2d',p:{out_ch:1,kernel:1,stride:1,pad:0}},
+      {type:'Sigmoid',p:{}}
+    ]
+  }
+};
+
+function ss(s) {
+  if (!s) return '?';
+  if (s.t === 'e') return `⚠ ${s.m}`;
+  if (s.t === '2d') return `${s.C} × ${s.H} × ${s.W}`;
+  if (s.t === '1d') return s.F.toLocaleString() + ' (1D)';
+  return '?';
+}
+
+function inShape() {
+  return {
+    t:'2d',
+    C: parseInt(document.getElementById('ic').value)||1,
+    H: parseInt(document.getElementById('ih').value)||28,
+    W: parseInt(document.getElementById('iw').value)||28
+  };
+}
+
+function calcShapes() {
+  const sh = [inShape()];
+  for (const l of layers) sh.push(D[l.type].calc(sh[sh.length-1], l.p));
+  return sh;
+}
+
+function add(type) {
+  const d = D[type], p = {};
+  for (const pd of d.p) p[pd.k] = pd.d;
+  layers.push({id: nid++, type, p});
+  upd();
+}
+function del(id) { layers = layers.filter(l => l.id !== id); upd(); }
+function clearAll() { layers = []; upd(); }
+
+function loadPreset(name) {
+  const pre = PRESETS[name];
+  document.getElementById('ic').value = pre.ic;
+  document.getElementById('ih').value = pre.ih;
+  document.getElementById('iw').value = pre.iw;
+  layers = pre.layers.map(l => ({id: nid++, type: l.type, p: {...l.p}}));
+  upd();
+}
+
+function setP(id, k, v) {
+  const l = layers.find(l => l.id === id);
+  if (l) { l.p[k] = parseFloat(v); upd(); }
+}
+
+function genAdvice(layers, shapes) {
+  const a = [];
+  if (!layers.length) {
+    a.push({t:'i', m:'Add layers from the palette to start building your network.'});
+    return a;
+  }
+  const errI = shapes.findIndex((s, i) => i > 0 && s.t === 'e');
+  if (errI > 0) a.push({t:'e', m:`Layer ${errI} (${layers[errI-1].type}): ${shapes[errI].m}`});
+
+  layers.forEach((l, i) => {
+    if ((l.type==='Conv2d'||l.type==='ConvTranspose2d'||l.type==='DepthwiseConv') && i < layers.length - 1) {
+      const nx = layers[i+1].type;
+      if (!['ReLU','LeakyReLU','GELU','Sigmoid','BatchNorm2d','LayerNorm'].includes(nx))
+        a.push({t:'w', m:`Layer ${i+1}: consider adding ReLU or BatchNorm after ${l.type}.`});
+    }
+  });
+
+  shapes.forEach((s, i) => {
+    if (s.t==='2d' && (s.H <= 2 || s.W <= 2) && i > 0)
+      a.push({t:'w', m:`After layer ${i}: spatial size is very small (${s.H}×${s.W}). Stop pooling here.`});
+  });
+
+  const hasL = layers.some(l => l.type === 'Linear');
+  const hasF = layers.some(l => l.type === 'Flatten');
+  if (hasL && !hasF) a.push({t:'e', m:'Add a Flatten layer before your first Linear layer.'});
+
+  const last = shapes[shapes.length - 1];
+  if (last && last.t==='2d' && last.C*last.H*last.W > 500000)
+    a.push({t:'w', m:`Large output: ${(last.C*last.H*last.W).toLocaleString()} values. Use Flatten + Linear or GlobalAvgPool to reduce.`});
+
+  if (!a.length) a.push({t:'ok', m:'All layer shapes are valid!'});
+  return a;
+}
+
+function genCode(layers, shapes) {
+  if (!layers.length) return 'model = nn.Sequential()';
+  const lines = ['model = nn.Sequential('];
+  layers.forEach((l, i) => {
+    const d = D[l.type];
+    lines.push(`    ${d.code(l.p, shapes[i])}${i < layers.length-1 ? ',' : ''}`);
+  });
+  lines.push(')');
+  return lines.join('\n');
+}
+
+function totalParams(shapes) {
+  let total = 0;
+  layers.forEach((l, i) => {
+    const d = D[l.type];
+    if (d.params) total += d.params(l.p, shapes[i]) || 0;
+  });
+  return total;
+}
+
+function copyCode() {
+  const sh = calcShapes();
+  const raw = genCode(layers, sh);
+  navigator.clipboard && navigator.clipboard.writeText(raw);
+  const btn = event.target;
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy code', 1500);
+}
+
+function upd() {
+  const sh = calcShapes();
+  const inp = inShape();
+  document.getElementById('insumm').textContent = `${inp.C}×${inp.H}×${inp.W}`;
+
+  // Stack
+  const stk = document.getElementById('stk');
+  if (!layers.length) {
+    stk.innerHTML = `<div class="empty-st">← Click a layer button above to start<br><span style="font-size:11px;color:var(--text3)">Try: Conv2d → ReLU → MaxPool → Flatten → Linear<br>or load a preset from the top bar</span></div>`;
+  } else {
+    stk.innerHTML = layers.map((l, i) => {
+      const d = D[l.type], ins = sh[i], outs = sh[i+1];
+      const bad = outs.t === 'e';
+      const gc = GC[d.g];
+      const tagSt = gc
+        ? `color:var(--text-${gc});background:var(--bg-${gc});border:0.5px solid var(--border-${gc})`
+        : `color:var(--text2);background:var(--bg3);border:0.5px solid var(--border)`;
+      const parHtml = d.p.map(pd =>
+        `<div class="pf">
+          <span class="pl">${pd.l}</span>
+          <input class="pi" type="number" style="width:${pd.w||54}px" value="${l.p[pd.k]}"
+            min="${pd.n}" max="${pd.x}" step="${pd.st||1}"
+            oninput="setP(${l.id},'${pd.k}',this.value)">
+        </div>`).join('');
+      const dsc = d.desc(l.p, ins);
+
+      let delta = '';
+      if (!bad && ins.t==='2d' && outs.t==='2d') {
+        if (outs.H < ins.H) delta += `<span class="delta-down">↓ ${ins.H}→${outs.H}</span>`;
+        else if (outs.H > ins.H) delta += `<span class="delta-up">↑ ${ins.H}→${outs.H}</span>`;
+        if (outs.C !== ins.C) delta += `<span class="delta-ch">ch ${ins.C}→${outs.C}</span>`;
+      }
+      if (!bad && ins.t==='2d' && outs.t==='1d')
+        delta += `<span class="delta-flat">→ 1D (${outs.F.toLocaleString()})</span>`;
+
+      const pct = d.params ? d.params(l.p, ins) : 0;
+
+      return `<div class="lc g-${d.g} ${bad ? 'bad' : ''}">
+        <button class="xbtn" onclick="del(${l.id})">✕</button>
+        <div class="lh">
+          <span class="idx">${i+1}.</span>
+          <span class="ltag" style="${tagSt}">${d.label}</span>
+          ${dsc ? `<span style="font-family:var(--font);font-size:10px;color:var(--text3)">${dsc}</span>` : ''}
+          ${delta}
+          ${pct > 0 ? `<span style="font-family:var(--font);font-size:10px;color:var(--text3);margin-left:auto">${pct.toLocaleString()} params</span>` : ''}
+        </div>
+        ${d.p.length ? `<div class="pr">${parHtml}</div>` : ''}
+        <div class="sr">
+          <span class="sb">${ss(ins)}</span>
+          <span class="arr">→</span>
+          <span class="sb ${bad ? 'bad' : 'out'}">${ss(outs)}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Flow
+  let fh = `<div class="fl"><div class="fdot" style="background:var(--text2)"></div>
+    <span style="font-family:var(--font);font-size:11px;font-weight:500">${ss(sh[0])}</span>
+    <span style="font-size:10px;color:var(--text3)"> (input)</span></div>`;
+  layers.forEach((l, i) => {
+    const d = D[l.type], out = sh[i+1];
+    const err = out.t === 'e';
+    fh += `<div class="fa">↓ ${d.label}</div>
+    <div class="fl"><div class="fdot" style="background:${err ? 'var(--text-err)' : GDC[d.g]}"></div>
+    <span style="font-family:var(--font);font-size:11px;font-weight:500;${err ? 'color:var(--text-err)' : ''}">${ss(out)}</span></div>`;
+  });
+  document.getElementById('flow').innerHTML = fh;
+
+  // Advice
+  const AI = {e:'✕',w:'!',ok:'✓',i:'·'};
+  const AC = {e:'err',w:'warn',ok:'ok',i:'secondary'};
+  const avd = genAdvice(layers, sh);
+  document.getElementById('adv').innerHTML = avd.map(a =>
+    `<div class="av">
+      <span style="font-size:10px;font-weight:700;color:var(--text-${AC[a.t]||'text2'});flex-shrink:0;margin-top:1px">${AI[a.t]||'·'}</span>
+      <span style="color:var(--text-${AC[a.t]||'text2'})">${a.m}</span>
+    </div>`).join('');
+
+  // Code
+  const raw = genCode(layers, sh);
+  const hi = raw
+    .replace(/^model/m, '<span class="ks">model</span>')
+    .replace(/nn\.\w+/g, m => `<span class="kw">${m}</span>`);
+  document.getElementById('code').innerHTML = `<div class="code-b">${hi}</div>`;
+
+  // Stats
+  const total = totalParams(sh);
+  const last = sh[sh.length - 1];
+  let outDim = last ? ss(last) : '?';
+  const errFound = sh.slice(1).some(s => s && s.t === 'e');
+  document.getElementById('stats').innerHTML = `
+    <div class="fl"><span style="font-size:11px;color:var(--text2)">Total layers</span><span style="font-family:var(--font);font-size:12px;font-weight:500;margin-left:auto">${layers.length}</span></div>
+    <div class="fl" style="margin-top:4px"><span style="font-size:11px;color:var(--text2)">Total params</span><span style="font-family:var(--font);font-size:12px;font-weight:500;margin-left:auto;${errFound?'color:var(--text3)':''}">${errFound ? '—' : total.toLocaleString()}</span></div>
+    <div class="fl" style="margin-top:4px"><span style="font-size:11px;color:var(--text2)">Output shape</span><span style="font-family:var(--font);font-size:11px;font-weight:500;margin-left:auto;${last&&last.t==='e'?'color:var(--text-err)':''}">${outDim}</span></div>
+  `;
+}
+
+upd();
+</script>
+</body>
+</html>
